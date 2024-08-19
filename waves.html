@@ -1,4 +1,4 @@
-<svg class="waves_svg" xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 1440 900" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 1440 900" fill="none">
     <g clip-path="url(#clip0_2118_479)">
         <rect width="100%" height="100%" fill="#080A10"/>
         <g opacity="0.1" clip-path="url(#clip1_2118_479)">
@@ -36,3 +36,88 @@
         </clipPath>
     </defs>
 </svg>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+    
+document.addEventListener("DOMContentLoaded", function() {
+    const paths = d3.select('svg').selectAll("path");
+
+    gsap.set('.lines:not(.main)', {
+        opacity: 0,
+    })
+    gsap.to('.lines:not(.main)', {
+        opacity: 1,
+        duration: .45,
+        stagger: .025,
+        ease: "power3.inOut",
+    })
+
+    // Wave parameters
+    const waveHeight = 4; // Maximum wave height
+    const waveSpeed = 0.001; // Speed of the wave
+    const frequency = 0.3; // Frequency of the wave
+    const numPoints = 300; // Number of points to update
+
+    // Store the initial points for reference
+    paths.each(function(_, i) {
+        const path = d3.select(this);
+        const pathLength = this.getTotalLength();
+        const initialPoints = d3.range(0, pathLength, pathLength / numPoints).map(function(x) {
+            const point = path.node().getPointAtLength(x);
+            return { x: point.x, y: point.y };
+        });
+        path.datum({ points: initialPoints, phase: i * Math.PI / paths.size() }); // Phase shift per path
+    });
+
+    let mouseX = -1;
+    let mouseY = -1;
+
+    // Update mouse position on hover
+    d3.select('svg').on("mousemove", function(event) {
+        const mouse = d3.pointer(event);
+        mouseX = mouse[0];
+        mouseY = mouse[1];
+    }).on("mouseout", function() {
+        mouseX = -1; // Reset when the mouse leaves the SVG
+        mouseY = -1;
+    });
+
+    const tick = function() {
+        const time = Date.now();
+
+        paths.each(function(d) {
+            const path = d3.select(this)
+            const { points, phase } = d;
+            const newPoints = points.map(function(point, i) {
+                let waveOffset = Math.sin((i * frequency) + (time * waveSpeed) + phase) * waveHeight;
+
+                // If mouse is near this point, add a heavy effect
+                if (mouseX >= 0 && mouseY >= 0) {
+                    const distToMouse = Math.sqrt(Math.pow(point.x - mouseX, 2) + Math.pow(point.y - mouseY, 2));
+                    const influenceRadius = 120; // Radius of influence of the mouse
+                    const heavyEffect = Math.max(0, influenceRadius - distToMouse) / influenceRadius * 50; // Strength of the effect
+                    heavyEffect
+                    waveOffset -= heavyEffect;
+                }
+
+                return {
+                    x: point.x,
+                    y: point.y + waveOffset
+                };
+            });
+
+            // Use interpolation to smooth the path
+            const line = d3.line()
+                .x(d => d.x)
+                .y(d => d.y)
+
+            path.attr("d", line(newPoints));
+        });
+    };
+    
+    d3.interval(tick, 10);
+});
+
+
+</script>
